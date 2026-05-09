@@ -1,0 +1,59 @@
+version: "3.9"
+
+networks:
+  sandbox-nginx-net:
+    name: sandbox-nginx-net
+    driver: bridge
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: sandbox-nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_PORT:-80}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    networks:
+      - sandbox-nginx-net
+    labels:
+      - "sandbox.infra=nginx"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: sandbox-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-5000}:5000"
+    volumes:
+      - .:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - API_PORT=${API_PORT:-5000}
+      - PLATFORM_HOST=${PLATFORM_HOST:-localhost}
+      - NGINX_PORT=${NGINX_PORT:-80}
+    networks:
+      - sandbox-nginx-net
+    labels:
+      - "sandbox.infra=api"
+    depends_on:
+      - nginx
+
+  monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: sandbox-monitor
+    restart: unless-stopped
+    volumes:
+      - .:/app
+    command: python3 /app/monitor/health_monitor.py
+    networks:
+      - sandbox-nginx-net
+    labels:
+      - "sandbox.infra=monitor"
+    depends_on:
+      - nginx

@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Lint shell scripts
+        run: |
+          sudo apt-get install -y shellcheck
+          shellcheck platform/create_env.sh
+          shellcheck platform/destroy_env.sh
+          shellcheck platform/cleanup_daemon.sh
+          shellcheck platform/simulate_outage.sh
+
+      - name: Check Python syntax
+        run: |
+          python3 -m py_compile platform/api.py
+          python3 -m py_compile monitor/health_monitor.py
+          echo "Python syntax OK"
+
+      - name: Test API imports
+        run: python3 -c "from platform.api import app; print('API import OK')"
+
+      - name: Build demo image
+        run: docker build -t sandbox-demo-app:latest demo-app/
+
+      - name: Start platform
+        run: |
+          cp .env.example .env
+          make up
+          sleep 5
+
+      - name: Health check API
+        run: curl -f http://localhost:5000/health
+
+      - name: Create environment
+        run: |
+          RESULT=$(curl -sf -X POST http://localhost:5000/envs \
+            -H "Content-Type: application/json" \
+            -d '{"name":"ci-test","ttl":120}')
+          echo "$RESULT"
+          ENV_ID=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['env']['id'])")
+          echo "ENV_ID=$ENV_ID" >> $GITHUB_ENV
+
+      - name: List environments
+        run: curl -f http://localhost:5000/envs
+
+      - name: Destroy environment
+        run: curl -sf -X DELETE http://localhost:5000/envs/${{ env.ENV_ID }}
+
+      - name: Stop platform
+        if: always()
+        run: make down
