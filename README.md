@@ -150,7 +150,7 @@ make destroy ENV=env-demo-app-123456
 | `POST` | `/envs/:id/outage` | Trigger simulation (`{"mode":"crash"}`) |
 | `GET` | `/health` | API health check |
 
-Interactive docs: `http://localhost:5000/docs`
+Interactive docs: `http://20.121.185.0:5000/docs`
 
 ---
 
