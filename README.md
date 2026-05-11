@@ -72,7 +72,7 @@ pip3 install -r requirements.txt
 ## Quick Start (zero to first running env in 4 commands)
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/devops-sandbox.git
+git clone https://github.com/ntonous/devops-sandbox.git
 cd devops-sandbox
 make build-demo          # Build the demo app image
 make up                  # Start Nginx + API + monitor
